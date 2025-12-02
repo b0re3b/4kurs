@@ -1,5 +1,36 @@
+"""
+Медіаплеєр з сучасним інтерфейсом
+===================================
+
+Опис:
+    Простий та зручний медіаплеєр з підтримкою відео та аудіо файлів,
+    а також потокового мультимедіа через URL.
+
+Основні можливості:
+    - Відтворення локальних медіафайлів (MP3, MP4, AVI, MKV тощо)
+    - Підтримка потокового мультимедіа (HTTP, HTTPS, RTSP)
+    - Сучасний темний інтерфейс
+    - Контроль відтворення (пауза, стоп, перемотка)
+    - Регулювання гучності
+    - Повзунок прогресу відтворення
+
+Вимоги:
+    - Python 3.6+
+    - PyQt5
+    - PyQt5.QtMultimedia
+
+Використання:
+    python media_player.py
+
+Автор: [Ваше ім'я]
+Версія: 1.0
+Дата: 2025
+"""
+
 import sys
 import os
+import logging
+from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QSlider, QLabel,
                              QFileDialog, QStyle, QMessageBox, QFrame)
@@ -9,9 +40,44 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtGui import QIcon, QPalette, QColor, QFont
 
 
+# Налаштування логування
+def setup_logging():
+    """
+    Налаштовує систему логування для запису подій роботи програми.
+
+    Створює лог-файли у директорії 'logs' з поточною датою та часом.
+    Формат: media_player_YYYYMMDD_HHMMSS.log
+    """
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"media_player_{timestamp}.log")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+
+    logging.info("=" * 60)
+    logging.info("Медіаплеєр запущено")
+    logging.info("=" * 60)
+
+
 class ModernButton(QPushButton):
+    """
+    Кастомна кнопка з сучасним дизайном.
+
+    Наслідує QPushButton та додає стильні ефекти hover і pressed.
+    """
 
     def __init__(self, *args, **kwargs):
+        """Ініціалізація кнопки з кастомними стилями."""
         super().__init__(*args, **kwargs)
         self.setStyleSheet("""
             QPushButton {
@@ -33,8 +99,21 @@ class ModernButton(QPushButton):
 
 
 class MediaPlayer(QMainWindow):
+    """
+    Головний клас медіаплеєра.
+
+    Attributes:
+        player (QMediaPlayer): Об'єкт медіаплеєра PyQt5
+        video_widget (QVideoWidget): Віджет для відображення відео
+        is_dragging (bool): Флаг перетягування повзунка
+        control_timer (QTimer): Таймер для автоприховування контролів
+    """
+
     def __init__(self):
+        """Ініціалізація головного вікна медіаплеєра."""
         super().__init__()
+        logging.info("Ініціалізація медіаплеєра")
+
         self.setWindowTitle("Медіаплеєр")
         self.setGeometry(100, 100, 1000, 700)
 
@@ -47,6 +126,7 @@ class MediaPlayer(QMainWindow):
 
         # Ініціалізація медіаплеєра
         self.player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
+        logging.info("QMediaPlayer ініціалізовано")
 
         # Створення інтерфейсу
         self.create_ui()
@@ -56,6 +136,7 @@ class MediaPlayer(QMainWindow):
         self.player.positionChanged.connect(self.position_changed)
         self.player.durationChanged.connect(self.duration_changed)
         self.player.error.connect(self.handle_error)
+        logging.info("Сигнали підключено")
 
         # Флаги для відстеження стану
         self.is_dragging = False
@@ -66,6 +147,18 @@ class MediaPlayer(QMainWindow):
         self.control_timer.setInterval(3000)
 
     def create_ui(self):
+        """
+        Створює користувацький інтерфейс програми.
+
+        Включає:
+        - Відео віджет
+        - Контейнер з контролями
+        - Кнопки управління
+        - Повзунки (прогрес, гучність)
+        - Мітки часу та гучності
+        """
+        logging.info("Створення інтерфейсу користувача")
+
         # Центральний віджет
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -300,8 +393,18 @@ class MediaPlayer(QMainWindow):
 
         # Встановлення початкової гучності
         self.set_volume(50)
+        logging.info("Інтерфейс створено успішно")
 
     def open_file(self):
+        """
+        Відкриває діалог вибору локального медіафайлу.
+
+        Підтримувані формати:
+        - Аудіо: MP3, WAV, OGG, M4A, AAC
+        - Відео: MP4, AVI, MKV, FLV, MOV, WMV, WEBM
+        """
+        logging.info("Відкриття діалогу вибору файлу")
+
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Відкрити медіафайл",
@@ -310,15 +413,29 @@ class MediaPlayer(QMainWindow):
         )
 
         if file_path:
+            logging.info(f"Вибрано файл: {file_path}")
             if not os.path.exists(file_path):
+                logging.error(f"Файл не знайдено: {file_path}")
                 QMessageBox.warning(self, "Помилка", "Файл не знайдено!")
                 return
             self.load_media(file_path)
             # Оновити заголовок
-            self.title_label.setText(os.path.basename(file_path))
+            file_name = os.path.basename(file_path)
+            self.title_label.setText(file_name)
+            logging.info(f"Завантажено файл: {file_name}")
+        else:
+            logging.info("Вибір файлу скасовано")
 
     def open_url(self):
+        """
+        Відкриває діалог введення URL для потокового медіа.
+
+        Підтримувані протоколи: HTTP, HTTPS, RTSP, MMS
+        """
         from PyQt5.QtWidgets import QInputDialog
+
+        logging.info("Відкриття діалогу введення URL")
+
         url, ok = QInputDialog.getText(
             self,
             "Відкрити потокове медіа",
@@ -326,67 +443,142 @@ class MediaPlayer(QMainWindow):
         )
 
         if ok and url:
+            logging.info(f"Введено URL: {url}")
             self.load_media(url)
             self.title_label.setText("Потокове медіа")
+        else:
+            logging.info("Введення URL скасовано")
 
     def load_media(self, path):
+        """
+        Завантажує медіафайл або потік.
+
+        Args:
+            path (str): Шлях до локального файлу або URL
+
+        Raises:
+            Exception: При помилці завантаження медіа
+        """
         try:
+            logging.info(f"Завантаження медіа: {path}")
+
             if path.startswith(('http://', 'https://', 'rtsp://', 'mms://')):
                 url = QUrl(path)
+                logging.info(f"Розпізнано як URL: {path}")
             else:
                 url = QUrl.fromLocalFile(path)
+                logging.info(f"Розпізнано як локальний файл: {path}")
 
             media = QMediaContent(url)
             self.player.setMedia(media)
             self.player.play()
+            logging.info("Медіа завантажено та розпочато відтворення")
 
         except Exception as e:
+            logging.error(f"Помилка завантаження медіа: {str(e)}", exc_info=True)
             QMessageBox.critical(self, "Помилка", f"Не вдалося завантажити медіа:\n{str(e)}")
 
     def play_pause(self):
+        """
+        Перемикає між відтворенням та паузою.
+        """
         if self.player.state() == QMediaPlayer.PlayingState:
             self.player.pause()
+            logging.info("Відтворення призупинено")
         else:
             self.player.play()
+            logging.info("Відтворення відновлено")
 
     def stop(self):
+        """
+        Зупиняє відтворення та скидає позицію до початку.
+        """
         self.player.stop()
         self.position_slider.setValue(0)
         self.time_label.setText("00:00 / 00:00")
+        logging.info("Відтворення зупинено")
 
     def forward(self):
+        """
+        Перемотує вперед на 10 секунд.
+        """
         position = self.player.position()
         duration = self.player.duration()
         new_position = min(position + 10000, duration)
         self.player.setPosition(new_position)
+        logging.info(f"Перемотка вперед: {position}ms -> {new_position}ms")
 
     def backward(self):
+        """
+        Перемотує назад на 10 секунд.
+        """
         position = self.player.position()
         new_position = max(0, position - 10000)
         self.player.setPosition(new_position)
+        logging.info(f"Перемотка назад: {position}ms -> {new_position}ms")
 
     def slider_pressed(self):
+        """
+        Обробляє натискання на повзунок позиції.
+        """
         self.is_dragging = True
+        logging.debug("Початок перетягування повзунка")
 
     def slider_released(self):
+        """
+        Обробляє відпускання повзунка позиції.
+        """
         self.is_dragging = False
+        logging.debug("Завершення перетягування повзунка")
 
     def set_position(self, position):
+        """
+        Встановлює позицію відтворення.
+
+        Args:
+            position (int): Позиція в мілісекундах
+        """
         self.player.setPosition(position)
+        logging.debug(f"Встановлено позицію: {position}ms")
 
     def set_volume(self, volume):
+        """
+        Встановлює рівень гучності.
+
+        Args:
+            volume (int): Рівень гучності (0-100)
+        """
         self.player.setVolume(volume)
         self.volume_label.setText(f"{volume}%")
+        logging.info(f"Гучність змінено на: {volume}%")
 
     def media_state_changed(self, state):
+        """
+        Обробляє зміну стану медіаплеєра.
+
+        Args:
+            state (QMediaPlayer.State): Новий стан плеєра
+        """
         if state == QMediaPlayer.PlayingState:
             self.play_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPause))
             self.play_btn.setToolTip("Пауза")
-        else:
+            logging.info("Стан: Відтворення")
+        elif state == QMediaPlayer.PausedState:
             self.play_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
             self.play_btn.setToolTip("Відтворити")
+            logging.info("Стан: Пауза")
+        elif state == QMediaPlayer.StoppedState:
+            self.play_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+            self.play_btn.setToolTip("Відтворити")
+            logging.info("Стан: Зупинено")
 
     def position_changed(self, position):
+        """
+        Обробляє зміну позиції відтворення.
+
+        Args:
+            position (int): Поточна позиція в мілісекундах
+        """
         if not self.is_dragging:
             self.position_slider.setValue(position)
 
@@ -398,14 +590,34 @@ class MediaPlayer(QMainWindow):
             self.time_label.setText(f"{current_str} / {total_str}")
 
     def duration_changed(self, duration):
+        """
+        Обробляє зміну тривалості медіа.
+
+        Args:
+            duration (int): Тривалість в мілісекундах
+        """
         self.position_slider.setRange(0, duration)
+        logging.info(f"Тривалість медіа: {self.format_time(duration)}")
 
     def handle_error(self):
+        """
+        Обробляє помилки відтворення медіа.
+        """
         error = self.player.errorString()
         if error:
+            logging.error(f"Помилка відтворення: {error}")
             QMessageBox.critical(self, "Помилка відтворення", error)
 
     def format_time(self, milliseconds):
+        """
+        Форматує час з мілісекунд у рядок.
+
+        Args:
+            milliseconds (int): Час в мілісекундах
+
+        Returns:
+            str: Відформатований час (MM:SS або HH:MM:SS)
+        """
         if milliseconds < 0:
             return "00:00"
 
@@ -420,14 +632,46 @@ class MediaPlayer(QMainWindow):
         else:
             return f"{minutes:02d}:{seconds:02d}"
 
+    def hide_controls(self):
+        """
+        Приховує контрольну панель (заготовка для майбутнього функціоналу).
+        """
+        # Функціонал автоприховування можна додати пізніше
+        pass
 
     def closeEvent(self, event):
+        """
+        Обробляє закриття вікна програми.
+
+        Args:
+            event (QCloseEvent): Подія закриття
+        """
+        logging.info("Закриття медіаплеєра")
         self.player.stop()
+        logging.info("Плеєр зупинено")
+        logging.info("=" * 60)
+        logging.info("Медіаплеєр завершив роботу")
+        logging.info("=" * 60)
         event.accept()
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    player = MediaPlayer()
-    player.show()
-    sys.exit(app.exec_())
+    # Налаштування логування
+    setup_logging()
+
+    try:
+        # Створення застосунку
+        app = QApplication(sys.argv)
+        logging.info("QApplication створено")
+
+        # Створення та відображення медіаплеєра
+        player = MediaPlayer()
+        player.show()
+        logging.info("Головне вікно відображено")
+
+        # Запуск циклу подій
+        sys.exit(app.exec_())
+
+    except Exception as e:
+        logging.critical(f"Критична помилка: {str(e)}", exc_info=True)
+        sys.exit(1)
